@@ -20,7 +20,15 @@ Version 3.2.0
     ``parse_accept_header``, ``parse_cache_control_header``,
     ``parse_content_range_header``, ``parse_csp_header``, ``parse_etags``,
     ``parse_if_range_header``, ``parse_range_header``, ``parse_set_header``.
-    This improves typing and reduces circular imports. :pr:`3116`
+    This improves static typing and reduces circular imports. :pr:`3116`
+-   The ``Request.parameter_storage_class``, ``dict_storage_class`` and
+    ``list_storage_class`` attributes, and the ``cls`` parameter to
+    ``parse_cookie``, ``parse_form_data``, and ``FormDataParser``, are
+    deprecated. ``Request.form``, ``files``, ``args``, and ``cookies`` will
+    always be ``ImmutableMultiDict``. ``Request.access_route`` will always be
+    ``Sequence``. These were previously overridable to allow ordered data
+    structures when needed, but Python's ``dict`` now guarantees order. This
+    improves static typing. :pr:`3169`
 -   ``HTTP_STATUS_CODES`` is deprecated. Use Python's built-in
     ``http.HTTPStatus`` instead. Reason phrases use the more common title case
     rather than upper case. :pr:`3139`

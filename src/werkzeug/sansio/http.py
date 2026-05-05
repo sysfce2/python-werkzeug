@@ -116,27 +116,34 @@ def _cookie_unslash_replace(m: t.Match[bytes]) -> bytes:
 
 
 def parse_cookie(
-    cookie: str | None = None,
-    cls: type[ds.MultiDict[str, str]] | None = None,
-) -> ds.MultiDict[str, str]:
-    """Parse a cookie from a string.
+    cookie: str | None = None, **kwargs: t.Any
+) -> ds.ImmutableMultiDict[str, str]:
+    """Parse cookies from a ``Cookie`` header as an :class:`.ImmutableMultiDict`.
 
-    The same key can be provided multiple times, the values are stored
-    in-order. The default :class:`MultiDict` will have the first value
-    first, and all values can be retrieved with
-    :meth:`MultiDict.getlist`.
+    :param cookie: The ``Cookie`` header.
 
-    :param cookie: The cookie header as a string.
-    :param cls: A dict-like class to store the parsed cookies in.
-        Defaults to :class:`MultiDict`.
+    .. versionchanged:: 3.2
+        The ``cls`` parameter is deprecated and will be removed in Werkzeug 3.3.
+        It will always be ``ImmutableMultiDict``.
 
     .. versionchanged:: 3.0
         Passing bytes, and the ``charset`` and ``errors`` parameters, were removed.
 
     .. versionadded:: 2.2
     """
-    if cls is None:
-        cls = ds.MultiDict
+    if "cls" in kwargs:
+        import warnings
+
+        warnings.warn(
+            "The 'cls' parameter is deprecated and will be removed in Werkzeug 3.3."
+            " It will always be 'ImmutableMultiDict'.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    cls: type[ds.ImmutableMultiDict[str, str]] = kwargs.get(
+        "cls", ds.ImmutableMultiDict
+    )
 
     if not cookie:
         return cls()
