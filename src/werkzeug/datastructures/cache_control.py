@@ -272,10 +272,14 @@ class ResponseCacheControl(_CacheControl):
        Request-only properties are not present on this response class.
     """
 
+    # https://httpwg.org/specs/rfc9111.html#cache-response-directive.no-cache
+    # This can be with or without a value, not mentioned on MDN.
     no_cache: str | t.Literal[True] | None = cache_control_property(
         "no-cache", True, None
     )
     public: bool = cache_control_property("public", None, bool)
+    # https://httpwg.org/specs/rfc9111.html#cache-response-directive.private
+    # This can be with or without a value, not mentioned on MDN.
     private: str | t.Literal[True] | None = cache_control_property(
         "private", True, None
     )
