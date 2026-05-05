@@ -11,10 +11,7 @@ import pytest
 from werkzeug import Response
 from werkzeug import wrappers
 from werkzeug.datastructures import Accept
-from werkzeug.datastructures import CombinedMultiDict
 from werkzeug.datastructures import Headers
-from werkzeug.datastructures import ImmutableList
-from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.datastructures import LanguageAccept
 from werkzeug.datastructures import MIMEAccept
 from werkzeug.datastructures import MultiDict
@@ -1003,34 +1000,6 @@ def test_values():
     )
     assert r.values["a"] == "1"
     assert "b" not in r.values
-
-
-def test_storage_classes():
-    class MyRequest(wrappers.Request):
-        dict_storage_class = dict
-        list_storage_class = list
-        parameter_storage_class = dict
-
-    req = MyRequest.from_values("/?foo=baz", headers={"Cookie": "foo=bar"})
-    assert type(req.cookies) is dict  # noqa: E721
-    assert req.cookies == {"foo": "bar"}
-    assert type(req.access_route) is list  # noqa: E721
-
-    assert type(req.args) is dict  # noqa: E721
-    assert type(req.values) is CombinedMultiDict  # noqa: E721
-    assert req.values["foo"] == "baz"
-
-    req = wrappers.Request.from_values(headers={"Cookie": "foo=bar;foo=baz"})
-    assert type(req.cookies) is ImmutableMultiDict  # noqa: E721
-    assert req.cookies.to_dict() == {"foo": "bar"}
-
-    # it is possible to have multiple cookies with the same name
-    assert req.cookies.getlist("foo") == ["bar", "baz"]
-    assert type(req.access_route) is ImmutableList  # noqa: E721
-
-    MyRequest.list_storage_class = tuple
-    req = MyRequest.from_values()
-    assert type(req.access_route) is tuple  # noqa: E721
 
 
 def test_response_headers_passthrough():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections.abc as cabc
 import typing as t
 from datetime import datetime
 from urllib.parse import parse_qsl
@@ -10,11 +11,9 @@ from ..datastructures import ETags
 from ..datastructures import Headers
 from ..datastructures import HeaderSet
 from ..datastructures import IfRange
-from ..datastructures import ImmutableList
 from ..datastructures import ImmutableMultiDict
 from ..datastructures import LanguageAccept
 from ..datastructures import MIMEAccept
-from ..datastructures import MultiDict
 from ..datastructures import Range
 from ..datastructures import RequestCacheControl
 from ..http import parse_date
@@ -61,31 +60,32 @@ class Request:
     .. versionadded:: 2.0
     """
 
-    #: the class to use for `args` and `form`.  The default is an
-    #: :class:`~werkzeug.datastructures.ImmutableMultiDict` which supports
-    #: multiple values per key. A :class:`~werkzeug.datastructures.ImmutableDict`
-    #: is faster but only remembers the last key. It is also
-    #: possible to use mutable structures, but this is not recommended.
+    #: The class to use for :attr:`args`, :attr:`form`, and :attr:`files`.
+    #:
+    #: .. deprecated:: 3.2
+    #:     Will be removed in Werkzeug 3.3. It will always be ``ImmutableMultiDict``.
     #:
     #: .. versionadded:: 0.6
-    parameter_storage_class: type[MultiDict[str, t.Any]] = ImmutableMultiDict
+    parameter_storage_class: None = None
 
-    #: The type to be used for dict values from the incoming WSGI
-    #: environment. (For example for :attr:`cookies`.) By default an
-    #: :class:`~werkzeug.datastructures.ImmutableMultiDict` is used.
+    #: The class to use for parsed dict values, such as :attr:`cookies`.
+    #:
+    #: .. deprecated:: 3.2
+    #:     Will be removed in Werkzeug 3.3. It will always be ``ImmutableMultiDict``.
     #:
     #: .. versionchanged:: 1.0.0
     #:     Changed to ``ImmutableMultiDict`` to support multiple values.
     #:
     #: .. versionadded:: 0.6
-    dict_storage_class: type[MultiDict[str, t.Any]] = ImmutableMultiDict
+    dict_storage_class: None = None
 
-    #: the type to be used for list values from the incoming WSGI environment.
-    #: By default an :class:`~werkzeug.datastructures.ImmutableList` is used
-    #: (for example for :attr:`access_list`).
+    #: The class to use for parsed list values, such as :attr:`access_route`.
+    #:
+    #: .. deprecated:: 3.2
+    #:     Will be removed in Werkzeug 3.3. It will always be ``Sequence``.
     #:
     #: .. versionadded:: 0.6
-    list_storage_class: type[list[t.Any]] = ImmutableList
+    list_storage_class: None = None
 
     user_agent_class: type[UserAgent] = UserAgent
     """The class used and returned by the :attr:`user_agent` property to
@@ -151,39 +151,61 @@ class Request:
         return f"<{type(self).__name__} {url!r} [{self.method}]>"
 
     @cached_property
-    def args(self) -> MultiDict[str, str]:
-        """The parsed URL parameters (the part in the URL after the question
-        mark).
-
-        By default an
-        :class:`~werkzeug.datastructures.ImmutableMultiDict`
-        is returned from this function.  This can be changed by setting
-        :attr:`parameter_storage_class` to a different type.  This might
-        be necessary if the order of the form data is important.
+    def args(self) -> ImmutableMultiDict[str, str]:
+        """The parsed URL query parameters (the ``?key=value&a=b`` part of a
+        URL) as an :class:`ImmutableMultiDict`.
 
         .. versionchanged:: 2.3
             Invalid bytes remain percent encoded.
         """
-        return self.parameter_storage_class(
-            parse_qsl(
-                self.query_string.decode(),
-                keep_blank_values=True,
-                errors="werkzeug.url_quote",
-            )
+        items = parse_qsl(
+            self.query_string.decode(),
+            keep_blank_values=True,
+            errors="werkzeug.url_quote",
         )
 
+        if self.parameter_storage_class is not None:
+            import warnings
+
+            warnings.warn(
+                "Setting 'Request.parameter_storage_class' is deprecated and will be"
+                " removed in Werkzeug 3.3. It will always be 'ImmutableMultiDict'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.parameter_storage_class(items)
+
+        return ImmutableMultiDict(items)
+
     @cached_property
-    def access_route(self) -> list[str]:
-        """If a forwarded header exists this is a list of all ip addresses
-        from the client ip to the last proxy server.
+    def access_route(self) -> cabc.Sequence[str]:
+        """The route taken from the client to the application.
+
+        This is ``X-Forwarded-For`` if it is set. Remember to only trust the
+        last N values, where N is the number of servers setting this header in
+        front of the application.
+
+        Otherwise, this only contains :attr:`remote_addr`, or is empty.
         """
         if "X-Forwarded-For" in self.headers:
-            return self.list_storage_class(
-                parse_list_header(self.headers["X-Forwarded-For"])
-            )
+            items = parse_list_header(self.headers["X-Forwarded-For"])
         elif self.remote_addr is not None:
-            return self.list_storage_class([self.remote_addr])
-        return self.list_storage_class()
+            items = [self.remote_addr]
+        else:
+            items = []
+
+        if self.list_storage_class is not None:
+            import warnings
+
+            warnings.warn(
+                "Setting 'Request.list_storage_class' is deprecated and will be"
+                " removed in Werkzeug 3.3. It will always be 'Sequence'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.list_storage_class(items)
+
+        return items
 
     @cached_property
     def full_path(self) -> str:
@@ -238,9 +260,12 @@ class Request:
         """A :class:`dict` with the contents of all cookies transmitted with
         the request."""
         wsgi_combined_cookie = ";".join(self.headers.getlist("Cookie"))
-        return parse_cookie(  # type: ignore
-            wsgi_combined_cookie, cls=self.dict_storage_class
-        )
+        kwargs: dict[str, t.Any] = {}
+
+        if self.dict_storage_class is not None:
+            kwargs["cls"] = self.dict_storage_class
+
+        return parse_cookie(wsgi_combined_cookie, **kwargs)
 
     # Common Descriptors
 

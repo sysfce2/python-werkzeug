@@ -1272,20 +1272,16 @@ def is_hop_by_hop_header(header: str) -> bool:
 
 
 def parse_cookie(
-    header: WSGIEnvironment | str | None,
-    cls: type[ds.MultiDict[str, str]] | None = None,
-) -> ds.MultiDict[str, str]:
-    """Parse a cookie from a string or WSGI environ.
+    header: WSGIEnvironment | str | None, **kwargs: t.Any
+) -> ds.ImmutableMultiDict[str, str]:
+    """Parse cookies from a ``Cookie`` header as an :class:`.ImmutableMultiDict`.
 
-    The same key can be provided multiple times, the values are stored
-    in-order. The default :class:`MultiDict` will have the first value
-    first, and all values can be retrieved with
-    :meth:`MultiDict.getlist`.
+    :param header: The ``Cookie`` header, or a WSGI environ with an
+        ``HTTP_COOKIE`` key.
 
-    :param header: The cookie header as a string, or a WSGI environ dict
-        with a ``HTTP_COOKIE`` key.
-    :param cls: A dict-like class to store the parsed cookies in.
-        Defaults to :class:`MultiDict`.
+    .. versionchanged:: 3.2
+        The ``cls`` parameter is deprecated and will be removed in Werkzeug 3.3.
+        It will always be ``ImmutableMultiDict``.
 
     .. versionchanged:: 3.0
         Passing bytes, and the ``charset`` and ``errors`` parameters, were removed.
@@ -1305,7 +1301,20 @@ def parse_cookie(
     if cookie:
         cookie = cookie.encode("latin1").decode()
 
-    return _sansio_http.parse_cookie(cookie=cookie, cls=cls)
+    parse_kwargs: dict[str, t.Any] = {}
+
+    if "cls" in kwargs:
+        import warnings
+
+        warnings.warn(
+            "The 'cls' parameter is deprecated and will be removed in Werkzeug"
+            " 3.3. It will always be 'ImmutableMultiDict'.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        parse_kwargs["cls"] = kwargs["cls"]
+
+    return _sansio_http.parse_cookie(cookie=cookie, **kwargs)
 
 
 _cookie_no_quote_re = re.compile(r"[\w!#$%&'()*+\-./:<=>?@\[\]^`{|}~]*", re.A)

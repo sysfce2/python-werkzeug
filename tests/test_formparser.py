@@ -5,6 +5,7 @@ from os.path import join
 import pytest
 
 from werkzeug import formparser
+from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.formparser import FormDataParser
@@ -418,25 +419,21 @@ class TestMultiPart:
         stream, form, files = parse_form_data(environ, silent=False)
         rv = stream.read()
         assert rv == b""
-        assert form == MultiDict()
-        assert files == MultiDict()
+        assert form == ImmutableMultiDict()
+        assert files == ImmutableMultiDict()
 
 
 class TestMultiPartParser:
-    def test_constructor_not_pass_stream_factory_and_cls(self):
+    def test_constructor_default_stream_factory(self):
         parser = formparser.MultiPartParser()
-
         assert parser.stream_factory is formparser.default_stream_factory
-        assert parser.cls is MultiDict
 
-    def test_constructor_pass_stream_factory_and_cls(self):
+    def test_constructor_stream_factory(self):
         def stream_factory():
             pass
 
-        parser = formparser.MultiPartParser(stream_factory=stream_factory, cls=dict)
-
+        parser = formparser.MultiPartParser(stream_factory=stream_factory)
         assert parser.stream_factory is stream_factory
-        assert parser.cls is dict
 
     def test_file_rfc2231_filename_continuations(self):
         data = (
